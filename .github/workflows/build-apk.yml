@@ -1,4 +1,4 @@
-name: FB Manu Android APK Build
+name: FB Manu APK Builder
 
 on:
   workflow_dispatch:
@@ -14,8 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check Game File
+        run: |
+          test -f manu_flappy_bird_premium.html
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,6 +34,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install SDK
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Create Android Project
         run: |
@@ -57,11 +66,7 @@ jobs:
           include ':app'
           EOF
 
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
+          echo "plugins { id 'com.android.application' version '8.7.3' apply false }" > build.gradle
 
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -87,8 +92,7 @@ jobs:
               <application
                   android:theme="@android:style/Theme.Material.Light.NoActionBar"
                   android:label="FB Manu"
-                  android:hardwareAccelerated="true"
-                  android:usesCleartextTraffic="false">
+                  android:hardwareAccelerated="true">
 
                   <activity
                       android:name=".MainActivity"
@@ -112,19 +116,19 @@ jobs:
           import android.os.Bundle;
           import android.webkit.WebView;
           import android.webkit.WebSettings;
-          import android.webkit.WebChromeClient;
           import android.view.Window;
           import android.view.WindowManager;
 
           public class MainActivity extends Activity {
 
-              private WebView webView;
+              WebView webView;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
                   requestWindowFeature(Window.FEATURE_NO_TITLE);
+
                   getWindow().setFlags(
                       WindowManager.LayoutParams.FLAG_FULLSCREEN,
                       WindowManager.LayoutParams.FLAG_FULLSCREEN
@@ -138,16 +142,9 @@ jobs:
                   settings.setAllowFileAccess(true);
                   settings.setMediaPlaybackRequiresUserGesture(false);
 
-                  webView.setWebChromeClient(new WebChromeClient());
-
                   setContentView(webView);
 
                   webView.loadUrl("file:///android_asset/index.html");
-              }
-
-              @Override
-              public void onBackPressed() {
-                  super.onBackPressed();
               }
 
               @Override
@@ -160,14 +157,10 @@ jobs:
           }
           EOF
 
-      - name: Install Android SDK Components
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
       - name: Build APK
         run: gradle assembleDebug
 
-      - name: Upload FB Manu APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FB-Manu-APK
