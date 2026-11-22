@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Check Game File
+      - name: Check HTML Game
         run: |
           test -f manu_flappy_bird_premium.html
 
@@ -32,13 +32,25 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK
+      - name: Setup Existing Android SDK
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+
+          SDKMANAGER=$(find "$SDK_ROOT" -type f -name sdkmanager | head -n 1)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Android SDK Manager not found"
+            exit 1
+          fi
+
+          echo "SDK Manager found: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses || true
+
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Create Android Project
         run: |
@@ -55,6 +67,7 @@ jobs:
                   gradlePluginPortal()
               }
           }
+
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -62,11 +75,16 @@ jobs:
                   mavenCentral()
               }
           }
+
           rootProject.name = "FBManu"
           include ':app'
           EOF
 
-          echo "plugins { id 'com.android.application' version '8.7.3' apply false }" > build.gradle
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
 
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -89,6 +107,7 @@ jobs:
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
               <application
                   android:theme="@android:style/Theme.Material.Light.NoActionBar"
                   android:label="FB Manu"
@@ -105,6 +124,7 @@ jobs:
                       </intent-filter>
 
                   </activity>
+
               </application>
           </manifest>
           EOF
@@ -121,7 +141,7 @@ jobs:
 
           public class MainActivity extends Activity {
 
-              WebView webView;
+              private WebView webView;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -157,10 +177,10 @@ jobs:
           }
           EOF
 
-      - name: Build APK
+      - name: Build Android APK
         run: gradle assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FB-Manu-APK
